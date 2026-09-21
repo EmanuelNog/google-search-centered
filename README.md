@@ -37,13 +37,23 @@ Works on `google.com` and regional Google domains (see the matches list in
 
 The add-on stays active until Firefox is closed.
 
-## Install (permanent)
+## Install (permanent — signed release)
 
-Permanent installs require signing by Mozilla:
+Every release ships a Mozilla-signed `.xpi` that installs permanently in any
+Firefox (release channel):
 
-1. `npx web-ext sign --api-key=... --api-secret=...` (AMO developer keys), or
-2. follow https://extensionworkshop.com/documentation/publish/ — then drag the
-   signed `.xpi` into `about:addons`.
+1. Download `google-search-centered-1.0.1.xpi` from the
+   [latest release](https://github.com/EmanuelNog/google-search-centered/releases/latest)
+2. In Firefox: `about:addons` → gear icon → **Install Add-on From File…** →
+   pick the file (or just drag the file into the Firefox window)
+
+To sign your own builds instead:
+
+```bash
+npx web-ext sign --source-dir . --api-key=<JWT issuer> --api-secret=<secret> --channel unlisted
+```
+
+(AMO developer credentials: https://addons.mozilla.org/developers/addon/api/key/)
 
 ## Verified behavior (Firefox 151, Sep 2026 — measured live in the browser)
 
