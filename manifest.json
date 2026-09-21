@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Google Search Centered",
+  "version": "1.0.0",
+  "description": "Centers Google search result columns on wide screens. Only applies when no knowledge panel is shown.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.google.com/search*",
+        "*://www.google.com.br/search*",
+        "*://www.google.co.uk/search*",
+        "*://www.google.de/search*",
+        "*://www.google.fr/search*",
+        "*://www.google.es/search*",
+        "*://www.google.it/search*",
+        "*://www.google.ca/search*",
+        "*://www.google.com.au/search*",
+        "*://www.google.co.in/search*",
+        "*://www.google.com.mx/search*",
+        "*://www.google.com.ar/search*",
+        "*://www.google.jp/search*",
+        "*://www.google.pl/search*",
+        "*://www.google.nl/search*",
+        "*://www.google.com.tr/search*",
+        "*://www.google.co.kr/search*",
+        "*://www.google.ru/search*",
+        "*://www.google.com.tw/search*",
+        "*://www.google.com.hk/search*",
+        "*://www.google.co.id/search*",
+        "*://www.google.co.th/search*",
+        "*://www.google.co.za/search*",
+        "*://www.google.com.co/search*",
+        "*://www.google.com.pe/search*",
+        "*://www.google.com.eg/search*",
+        "*://www.google.com.ua/search*",
+        "*://www.google.co.nz/search*",
+        "*://www.google.com.sg/search*",
+        "*://www.google.com.ph/search*",
+        "*://www.google.com.pk/search*",
+        "*://www.google.co.il/search*",
+        "*://www.google.com.vn/search*",
+        "*://www.google.com.sa/search*",
+        "*://google.com/search*",
+        "*://google.com.br/search*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "google-search-centered@local",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
