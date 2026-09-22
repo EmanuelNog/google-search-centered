@@ -2,6 +2,10 @@
 web-ext-artifacts/
 *.xpi
 
+# web-ext working files
+.amo-upload-uuid
+.amo-metadata.json
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
