@@ -152,10 +152,43 @@ function legacyTabsRow() {
   return null;
 }
 
+// AI overview panel ("Visão geral criada por IA" / "AI Overview"): a wide
+// block that Google anchors in the left grid zone like everything else.
+// Locate it by its heading text, then walk up to the outermost ancestor that
+// is still narrower than the viewport (the block itself); the full-width
+// wrapper above is the stop line.
+const AI_LABELS = ["Visão geral criada por IA", "AI Overview"];
+function getAiBlock() {
+  const vw = document.documentElement.clientWidth;
+  let heading = null;
+  const all = document.querySelectorAll("div, span, h1, h2, h3");
+  for (const e of all) {
+    if (e.children.length > 3) continue;
+    const t = (e.textContent || "").trim();
+    if (AI_LABELS.indexOf(t) !== -1) {
+      const r = e.getBoundingClientRect();
+      if (r.width > 5 && r.height > 5) {
+        heading = e;
+        break;
+      }
+    }
+  }
+  if (!heading) return null;
+  let el = heading;
+  let best = null;
+  for (let i = 0; i < 16 && el && el !== document.body; i++, el = el.parentElement) {
+    const w = el.getBoundingClientRect().width;
+    if (w >= vw * 0.9) break; // full-width wrapper — stop climbing
+    if (w > 500) best = el; // widest bounded ancestor = the block
+  }
+  return best;
+}
+
 let colWidth = null; // captured from the live element on first apply
-let lastPillEl = null; // last transformed pill / tab targets — stale
+let lastPillEl = null; // last transformed pill / tab / AI targets — stale
 let lastTabsOuter = null; // transforms on replaced nodes are cleared
 let lastTabsInner = null; // on re-target
+let lastAiEl = null;
 
 function rhsVisible() {
   const rhs = document.getElementById("rhs");
@@ -228,11 +261,12 @@ function centerItem(el, key) {
   return true;
 }
 
-// Iterative residual centering for the inner tab row: it sits inside the
-// outer frame, so a one-shot cached baseline would fight the outer transform.
-// Adjusting by the measured residual each pass converges in a frame or two
-// and is idempotent once centered (residual ~ 0 -> no write -> no loop).
-function centerInner(el) {
+// Iterative residual centering for elements whose one-shot baseline math is
+// unreliable (inner tab row composing with the outer frame; the AI overview
+// block, which Google replaces freely): adjust by the measured residual each
+// pass — converges in a frame or two, idempotent once centered, and it
+// self-guards: an already-centered block yields residual ~0 -> no write.
+function centerByResidual(el) {
   const r = el.getBoundingClientRect();
   if (r.width < 100) return;
   const residual = Math.round(
@@ -312,7 +346,7 @@ function apply() {
     }
     if (tabsInner && tabsInner !== tabsOuter) {
       lastTabsInner = tabsInner;
-      centerInner(tabsInner);
+      centerByResidual(tabsInner);
     } else {
       lastTabsInner = null;
     }
@@ -327,6 +361,22 @@ function apply() {
     }
     lastTabsOuter = null;
     lastTabsInner = null;
+  }
+
+  // --- AI overview block ---
+  const ai = getAiBlock();
+  if (ai !== lastAiEl && lastAiEl) {
+    lastAiEl.style.transform = "";
+  }
+  if (ai) {
+    lastAiEl = ai;
+    if (active) {
+      centerByResidual(ai);
+    } else {
+      ai.style.transform = "";
+    }
+  } else {
+    lastAiEl = null;
   }
 
   if (active) {
@@ -357,6 +407,7 @@ function verifyStable() {
   const targets = [
     document.querySelector(PILL_SELECTOR),
     getTabsRow(),
+    getAiBlock(),
     document.getElementById("center_col"),
   ];
   let off = 0;

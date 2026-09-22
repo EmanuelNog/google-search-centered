@@ -10,7 +10,9 @@ three elements on the viewport center:
 1. the **results column** (`#center_col`) — spans the full grid row
    (`grid-column: 1 / -1`) and centers with auto margins;
 2. the **search bar pill**;
-3. the **filter tabs row** (All / Images / Videos / ...).
+3. the **filter tabs row** (All / Images / Videos / ...);
+4. the **AI overview panel** ("AI Overview" / "Visão geral criada por IA"),
+   when the page has one.
 
 Items 2 and 3 are shifted with `transform: translateX(delta)` where delta is
 derived at runtime from each element's untransformed baseline — nothing is
