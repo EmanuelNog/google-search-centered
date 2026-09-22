@@ -19,6 +19,23 @@ correct. A live overlap guard drops the shifting when a centered item would
 collide with the header controls (Settings / Apps / Sign in); at those widths
 the native layout is kept.
 
+## What it does
+
+```
+        NATIVE LAYOUT                        WITH THIS ADD-ON
+┌───────────────────────────────┐    ┌───────────────────────────────┐
+│ ▓▓  ▄▄▄▄▄▄▄▄▄▄▄▄▄       ░░ ░░  │    │       ░░  ▄▄▄▄▄▄▄▄▄▄▄▄▄ ▓▓    │
+│ ───────────────────────       │    │     ───────────────────────   │
+│ ██████                        │    │            ██████             │
+│ ██████    (empty space)       │    │            ██████             │
+│ ██████                        │    │            ██████             │
+└───────────────────────────────┘    └───────────────────────────────┘
+   results, search bar and              all three sit on the viewport
+   tabs hug the left edge               center, aligned with each other
+
+▓▓ logo   ▄▄ search bar   ── filter tabs   ██ results   ░░ header controls
+```
+
 It only kicks in when:
 
 - the window is at least **1440px** wide (one knob, `MIN_WIDTH` in
