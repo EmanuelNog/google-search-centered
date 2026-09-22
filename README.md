@@ -61,8 +61,8 @@ The add-on stays active until Firefox is closed.
 Every release ships a Mozilla-signed `.xpi` that installs permanently in any
 Firefox (release channel):
 
-1. Download `google-search-centered-1.0.1.xpi` from the
-   [latest release](https://github.com/EmanuelNog/google-search-centered/releases/latest)
+1. Download the signed `.xpi` (`google-search-centered-<version>.xpi`) from
+   the [latest release](https://github.com/EmanuelNog/google-search-centered/releases/latest)
 2. In Firefox: `about:addons` → gear icon → **Install Add-on From File…** →
    pick the file (or just drag the file into the Firefox window)
 
