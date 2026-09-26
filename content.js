@@ -174,9 +174,17 @@ function getAiBlock() {
     }
   }
   if (!heading) return null;
+  const pillEl = document.querySelector(PILL_SELECTOR);
+  const colEl = document.getElementById("center_col");
   let el = heading;
   let best = null;
   for (let i = 0; i < 16 && el && el !== document.body; i++, el = el.parentElement) {
+    // Never cross INTO the results column: centering the column is apply()'s
+    // own job (grid + auto margins); translating its container would
+    // double-shift everything and visibly break the All tab.
+    if (colEl && (el === colEl || el.contains(colEl))) break;
+    // Never cross into the search pill's subtree — same rule walkTabs uses.
+    if (pillEl && (el === pillEl || el.contains(pillEl))) break;
     const w = el.getBoundingClientRect().width;
     if (w >= vw * 0.9) break; // full-width wrapper — stop climbing
     if (w > 500) best = el; // widest bounded ancestor = the block

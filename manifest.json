@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Google Search Centered",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Centers Google search results, the search bar and filter tabs on wide screens. Only applies when no knowledge panel is shown.",
   "icons": {
     "32": "icons/icon-32.png",
@@ -48,7 +48,9 @@
         "*://google.com/search*",
         "*://google.com.br/search*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start"
     }
   ],
@@ -56,7 +58,9 @@
     "gecko": {
       "id": "google-search-centered@local",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   }
