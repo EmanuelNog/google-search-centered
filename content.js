@@ -209,6 +209,70 @@ function rhsVisible() {
   );
 }
 
+// --- knowledge-panel layouts -------------------------------------------
+// With a knowledge panel (#rhs) the results column and the panel share ONE
+// content zone in #rcnt's grid (col: 2 / span N, rhs: span M / -2). Google
+// resolves the leftover width into the LAST track, so on wide screens the
+// whole zone hugs the left edge. The column cannot be centered on its own
+// there (it would land on top of the panel) — instead rebalance the OUTER
+// tracks: first track +delta, last track -delta. The zone (column + panel +
+// the entity-header row) slides onto the viewport center, while rows that
+// span the full grid (grid-column: 1 / -1, e.g. the photos strip) stay
+// full-bleed. Baseline is cached per window width; the inline value is
+// always recomputed from the UNMODIFIED tracks so repeated passes can't
+// compound the shift.
+function contentZone() {
+  const col = document.getElementById("center_col");
+  const rhs = document.getElementById("rhs");
+  if (!col || !rhs) return null;
+  const a = col.getBoundingClientRect();
+  const b = rhs.getBoundingClientRect();
+  return { left: Math.min(a.left, b.left), right: Math.max(a.right, b.right) };
+}
+
+function centerContentZone() {
+  const rcnt = document.getElementById("rcnt");
+  const col = document.getElementById("center_col");
+  const rhs = document.getElementById("rhs");
+  if (!rcnt || !col || !rhs) return;
+  if (getComputedStyle(rcnt).display !== "grid") return;
+  let base = null;
+  try {
+    base = JSON.parse(rcnt.dataset.gsrZone || "null");
+  } catch (e) {
+    base = null;
+  }
+  if (!base || Math.abs(base.iw - window.innerWidth) > 2) {
+    rcnt.style.gridTemplateColumns = "";
+    delete rcnt.dataset.gsrZone;
+    const b = contentZone();
+    if (!b) return;
+    const tracks = getComputedStyle(rcnt).gridTemplateColumns.split(" ");
+    if (tracks.length < 3 || b.right - b.left < 100) return;
+    base = { iw: window.innerWidth, tracks, left: b.left, width: b.right - b.left };
+    rcnt.dataset.gsrZone = JSON.stringify(base);
+  }
+  const vw = document.documentElement.clientWidth;
+  const delta = Math.round(vw / 2 - (base.left + base.width / 2));
+  const n = base.tracks.length;
+  const first = parseFloat(base.tracks[0]);
+  const last = parseFloat(base.tracks[n - 1]);
+  if (!isFinite(first) || !isFinite(last)) return;
+  if (delta > 0 && last - delta < 0) return; // not enough slack on the right
+  if (delta < 0 && first + delta < 0) return; // not enough slack on the left
+  const tracks = base.tracks.slice();
+  tracks[0] = first + delta + "px";
+  tracks[n - 1] = last - delta + "px";
+  rcnt.style.gridTemplateColumns = tracks.join(" ");
+}
+
+function clearContentZone() {
+  const rcnt = document.getElementById("rcnt");
+  if (!rcnt) return;
+  if (rcnt.style.gridTemplateColumns) rcnt.style.gridTemplateColumns = "";
+  if (rcnt.dataset.gsrZone) delete rcnt.dataset.gsrZone;
+}
+
 // Left edge of the header's right-side controls (Settings/Apps/Sign in).
 // Used by the overlap guard: a centered item must not reach these.
 function rightControlsLeft() {
@@ -291,12 +355,15 @@ function centerByResidual(el) {
 }
 
 function apply() {
-  const active = window.innerWidth >= MIN_WIDTH && !rhsVisible();
+  const wide = window.innerWidth >= MIN_WIDTH;
+  const panel = wide && rhsVisible(); // knowledge panel → center the shared zone
+  const active = wide; // pill / tabs / AI always center when wide enough
+  const colSpan = wide && !panel; // full-row column trick only without a panel
 
   // --- results column ---
   const col = document.getElementById("center_col");
   if (col) {
-    if (active) {
+    if (colSpan) {
       // Width must be measured after layout exists (document_start can see 0).
       if (colWidth === null) {
         const w = col.getBoundingClientRect().width;
@@ -315,6 +382,10 @@ function apply() {
       colWidth = null;
     }
   }
+
+  // --- knowledge panel: center the zone the column and panel share ---
+  if (panel) centerContentZone();
+  else clearContentZone();
 
   // --- search bar pill ---
   const pill = document.querySelector(PILL_SELECTOR);
@@ -412,18 +483,25 @@ function scheduleApply() {
 let verifyTimer = null;
 let verifyCount = 0;
 function verifyStable() {
+  const vw = document.documentElement.clientWidth;
+  const panel = rhsVisible();
   const targets = [
     document.querySelector(PILL_SELECTOR),
     getTabsRow(),
     getAiBlock(),
-    document.getElementById("center_col"),
+    // With a panel the shared zone (column + panel) is the centered unit;
+    // without one it is the column itself.
+    panel ? null : document.getElementById("center_col"),
   ];
   let off = 0;
-  const vw = document.documentElement.clientWidth;
   for (const el of targets) {
     if (!el) continue;
     const r = el.getBoundingClientRect();
     off += Math.abs(Math.round(vw / 2 - (r.left + r.width / 2)));
+  }
+  if (panel) {
+    const z = contentZone();
+    if (z) off += Math.abs(Math.round(vw / 2 - (z.left + (z.right - z.left) / 2)));
   }
   if (off > 6 && verifyCount < 6) {
     verifyCount++;
