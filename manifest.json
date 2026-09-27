@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Google Search Centered",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Centers Google search results, the search bar and filter tabs on wide screens. Only applies when no knowledge panel is shown.",
   "icons": {
     "32": "icons/icon-32.png",
