@@ -43,8 +43,11 @@ except RuntimeError as e:
 
 if XPI:
     print("install addon:", json.dumps(cmd(s, 2, "Addon:Install", {"path": XPI, "temporary": True}))[:200])
-print("navigate:", json.dumps(cmd(s, 3, "WebDriver:Navigate", {"url": URL}))[:160])
-time.sleep(16)
+if URL != "-":
+    print("navigate:", json.dumps(cmd(s, 3, "WebDriver:Navigate", {"url": URL}))[:160])
+    time.sleep(16)
+else:
+    time.sleep(1)
 
 MEAS = r"""
 window.__bp = function () {
