@@ -264,6 +264,7 @@ function centerContentZone() {
   tracks[0] = first + delta + "px";
   tracks[n - 1] = last - delta + "px";
   rcnt.style.gridTemplateColumns = tracks.join(" ");
+  alignGhostGrids(rcnt, base.tracks, tracks.join(" "));
 }
 
 function clearContentZone() {
@@ -271,6 +272,41 @@ function clearContentZone() {
   if (!rcnt) return;
   if (rcnt.style.gridTemplateColumns) rcnt.style.gridTemplateColumns = "";
   if (rcnt.dataset.gsrZone) delete rcnt.dataset.gsrZone;
+  clearGhostGrids();
+}
+
+// --- nested "ghost" zone grids -------------------------------------------
+// Full-bleed rows (photo / video strips, e.g. .bzXtMb) carry their own
+// NESTED copy of the zone grid; content placed inside it at grid-column
+// 2 / -2 stays at the ORIGINAL zone position unless the nested grid receives
+// the same rebalanced tracks — so the strip's thumbnails would sit delta px
+// left of the centered column (observed live 2026-09, pt-BR "banana").
+// Mirror every track change onto descendants whose computed template still
+// equals the cached baseline; reset them when the panel layout is inactive.
+let zoneGhosts = [];
+
+function alignGhostGrids(rcnt, origTracks, newTracks) {
+  const origStr = origTracks.join(" ");
+  zoneGhosts = zoneGhosts.filter((g) => g.isConnected);
+  const all = rcnt.querySelectorAll("div");
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    if (zoneGhosts.indexOf(el) !== -1) continue;
+    if (getComputedStyle(el).display !== "grid") continue;
+    if (getComputedStyle(el).gridTemplateColumns === origStr) zoneGhosts.push(el);
+  }
+  for (const g of zoneGhosts) {
+    if (g.style.gridTemplateColumns !== newTracks) {
+      g.style.gridTemplateColumns = newTracks;
+    }
+  }
+}
+
+function clearGhostGrids() {
+  for (const g of zoneGhosts) {
+    if (g.isConnected) g.style.gridTemplateColumns = "";
+  }
+  zoneGhosts = [];
 }
 
 // Left edge of the header's right-side controls (Settings/Apps/Sign in).
