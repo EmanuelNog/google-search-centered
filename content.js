@@ -158,6 +158,7 @@ function legacyTabsRow() {
 // is still narrower than the viewport (the block itself); the full-width
 // wrapper above is the stop line.
 const AI_LABELS = ["Visão geral criada por IA", "AI Overview"];
+const AI_MORE_LABELS = ["Mostrar mais", "Show more"];
 function getAiBlock() {
   const vw = document.documentElement.clientWidth;
   let heading = null;
@@ -198,6 +199,7 @@ let lastTabsOuter = null; // transforms on replaced nodes are cleared
 let lastTabsInner = null; // on re-target
 let lastAiEl = null;
 let lastAiBar = null; // the AI module's bottom ask bar (centered within the block)
+let lastAiMore = null; // the AI module's "show more" expander (collapsed variant)
 
 function rhsVisible() {
   const rhs = document.getElementById("rhs");
@@ -429,6 +431,31 @@ function getAiBar(ai) {
   return null;
 }
 
+// The AI module's "show more" expander (collapsed variant): a pill hugging
+// the module's left edge ("Mostrar mais" / "Show more"). Locate by exact
+// label text, walk up to the pill (narrower than the block); NEVER move the
+// enclosing full-width row.
+function getAiMore(ai) {
+  const blockW = ai.getBoundingClientRect().width;
+  const all = ai.querySelectorAll("div, span, button");
+  for (const e of all) {
+    if (e.children.length > 2) continue;
+    const t = (e.textContent || "").trim();
+    if (AI_MORE_LABELS.indexOf(t) === -1) continue;
+    const r = e.getBoundingClientRect();
+    if (r.width < 5 || r.height < 5) continue;
+    let el = e;
+    let best = null;
+    for (let i = 0; i < 5 && el && el !== ai; i++, el = el.parentElement) {
+      const w = el.getBoundingClientRect().width;
+      const h = el.getBoundingClientRect().height;
+      if (w >= 200 && w <= blockW * 0.92 && h >= 24 && h <= 160) best = el;
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 function apply() {
   const wide = window.innerWidth >= MIN_WIDTH;
   const panel = wide && rhsVisible(); // knowledge panel → center the shared zone
@@ -526,15 +553,25 @@ function apply() {
     lastAiEl = ai;
     if (active) {
       centerByResidual(ai);
-      // Center the module's bottom ask bar within the (now centered) block.
+      // Center the module's bottom controls within the (now centered) block:
+      // the ask-anything input bar and/or the "show more" expander pill.
+      const ac = ai.getBoundingClientRect();
+      const targetX = ac.left + ac.width / 2;
       const bar = getAiBar(ai);
       if (bar !== lastAiBar && lastAiBar) lastAiBar.style.transform = "";
       if (bar) {
         lastAiBar = bar;
-        const ac = ai.getBoundingClientRect();
-        centerWithin(bar, ac.left + ac.width / 2);
+        centerWithin(bar, targetX);
       } else {
         lastAiBar = null;
+      }
+      const more = getAiMore(ai);
+      if (more !== lastAiMore && lastAiMore) lastAiMore.style.transform = "";
+      if (more) {
+        lastAiMore = more;
+        centerWithin(more, targetX);
+      } else {
+        lastAiMore = null;
       }
     } else {
       ai.style.transform = "";
@@ -542,12 +579,20 @@ function apply() {
         lastAiBar.style.transform = "";
         lastAiBar = null;
       }
+      if (lastAiMore) {
+        lastAiMore.style.transform = "";
+        lastAiMore = null;
+      }
     }
   } else {
     lastAiEl = null;
     if (lastAiBar) {
       lastAiBar.style.transform = "";
       lastAiBar = null;
+    }
+    if (lastAiMore) {
+      lastAiMore.style.transform = "";
+      lastAiMore = null;
     }
   }
 

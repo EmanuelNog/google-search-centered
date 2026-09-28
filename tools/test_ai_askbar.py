@@ -135,6 +135,66 @@ try:
 except Exception as e:
     print("verdict parse err:", e)
 
+# ---- scenario 2: collapsed variant ending with a "Mostrar mais" pill ----
+FIXTURE2 = r"""
+window.__fixture2 = function () {
+  document.body.innerHTML = `
+    <div id="hdr" style="width:100%">
+      <div id="searchform"><div class="RNNXgb" role="combobox" style="width:861px;height:44px" aria-label="Search"></div></div>
+      <div class="tabrow" role="navigation" style="width:861px;display:flex">
+        <span class="beZ0tf">Tudo</span><span class="beZ0tf">Imagens</span><span class="beZ0tf">Vídeos</span>
+      </div>
+    </div>
+    <div id="rcnt">
+      <div id="aiblock" style="width:1100px;margin-left:100px;">
+        <div class="aihdr" style="height:24px">Visão geral criada por IA</div>
+        <div style="height:200px">resposta</div>
+        <div class="morerow" style="width:100%">
+          <div class="morepill" style="width:650px;height:48px;display:block">
+            <span class="morelabel">Mostrar mais</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  return 'ok';
+}
+"""
+cmd("POST", "/url", {"url": "about:blank"})
+time.sleep(2)
+cmd("POST", "/execute/sync", {"script": "window.__full=" + json.dumps(src) + ";", "args": []})
+cmd("POST", "/execute/sync", {"script": FIXTURE2, "args": []})
+cmd("POST", "/execute/sync", {"script": "return window.__fixture2()", "args": []})
+cmd("POST", "/execute/sync", {"script": RUN, "args": []})
+r = cmd("POST", "/execute/sync", {"script": "return window.__run()", "args": []})
+print("APPLY2:", r.get("value"))
+time.sleep(1)
+
+CHECK2 = r"""
+window.__check2 = function () {
+  function rr(e){ if(!e) return null; var r=e.getBoundingClientRect();
+    return {l:Math.round(r.left), r:Math.round(r.right), w:Math.round(r.width), c:Math.round(r.left + r.width/2)}; }
+  var vw = document.documentElement.clientWidth, center = Math.round(vw/2);
+  var block = rr(document.getElementById('aiblock'));
+  var pill = rr(document.querySelector('.morepill'));
+  var out = {vw: vw, center: center, block: block, pill: pill,
+             blockOff: block ? Math.round(block.c - center) : null,
+             pillOffInBlock: (block && pill) ? Math.round(pill.c - block.c) : null};
+  out.blockOK = out.blockOff !== null && Math.abs(out.blockOff) <= 6;
+  out.pillOK = out.pillOffInBlock !== null && Math.abs(out.pillOffInBlock) <= 6;
+  out.PASS = out.blockOK && out.pillOK;
+  return JSON.stringify(out);
+}
+"""
+cmd("POST", "/execute/sync", {"script": CHECK2, "args": []})
+r = cmd("POST", "/execute/sync", {"script": "return window.__check2()", "args": []})
+print("AFTER2:", r.get("value"))
+try:
+    d2 = json.loads(r.get("value"))
+    print("SCENARIO2:", "GREEN (PASS)" if d2.get("PASS") else "RED (FAIL)",
+          "| block off:", d2.get("blockOff"), "| more-pill center in block:", d2.get("pillOffInBlock"))
+except Exception as e:
+    print("scenario2 parse err:", e)
+
 cmd("DELETE", "")
 proc.terminate()
 time.sleep(1)
