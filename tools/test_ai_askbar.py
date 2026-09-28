@@ -195,6 +195,78 @@ try:
 except Exception as e:
     print("scenario2 parse err:", e)
 
+# ---- scenario 3: user's variant — picked block EXCLUDES the control rows ----
+FIXTURE3 = r"""
+window.__fixture3 = function () {
+  document.body.innerHTML = `
+    <div id="hdr" style="width:100%">
+      <div id="searchform"><div class="RNNXgb" role="combobox" style="width:861px;height:44px" aria-label="Search"></div></div>
+      <div class="tabrow" role="navigation" style="width:861px;display:flex">
+        <span class="beZ0tf">All</span><span class="beZ0tf">Images</span><span class="beZ0tf">Videos</span>
+      </div>
+    </div>
+    <div id="rcnt">
+      <div class="bzXtMb" style="height:420px;">
+        <div class="modwrap" style="width:100%;">
+          <div id="aiblock" style="width:1100px;margin-left:100px;">
+            <div class="aihdr" style="height:24px">AI Overview</div>
+            <div style="height:200px">answer</div>
+          </div>
+          <div class="morerow" style="width:764px;margin-left:100px;">
+            <div class="pillwrap" style="width:762px;height:48px;">
+              <span class="morelabel">Show more</span>
+            </div>
+          </div>
+          <div class="askrow" style="width:684px;height:108px;margin-left:100px;">
+            <input class="askinput" style="width:584px;height:24px" placeholder="Ask anything">
+          </div>
+        </div>
+      </div>
+      <div id="center_col" style="height:400px">results</div>
+    </div>`;
+  return 'ok';
+}
+"""
+cmd("POST", "/url", {"url": "about:blank"})
+time.sleep(2)
+cmd("POST", "/execute/sync", {"script": "window.__full=" + json.dumps(src) + ";", "args": []})
+cmd("POST", "/execute/sync", {"script": FIXTURE3, "args": []})
+cmd("POST", "/execute/sync", {"script": "return window.__fixture3()", "args": []})
+cmd("POST", "/execute/sync", {"script": RUN, "args": []})
+r = cmd("POST", "/execute/sync", {"script": "return window.__run()", "args": []})
+print("APPLY3:", r.get("value"))
+time.sleep(1)
+
+CHECK3 = r"""
+window.__check3 = function () {
+  function rr(e){ if(!e) return null; var r=e.getBoundingClientRect();
+    return {l:Math.round(r.left), r:Math.round(r.right), w:Math.round(r.width), c:Math.round(r.left + r.width/2)}; }
+  var vw = document.documentElement.clientWidth, center = Math.round(vw/2);
+  var block = rr(document.getElementById('aiblock'));
+  var pill = rr(document.querySelector('.pillwrap'));
+  var ask = rr(document.querySelector('.askrow'));
+  var out = {vw: vw, center: center, block: block, pill: pill, ask: ask,
+             blockOff: block ? Math.round(block.c - center) : null,
+             pillOffInBlock: (block && pill) ? Math.round(pill.c - block.c) : null,
+             askOffInBlock: (block && ask) ? Math.round(ask.c - block.c) : null};
+  out.blockOK = out.blockOff !== null && Math.abs(out.blockOff) <= 6;
+  out.pillOK = out.pillOffInBlock !== null && Math.abs(out.pillOffInBlock) <= 6;
+  out.askOK = out.askOffInBlock !== null && Math.abs(out.askOffInBlock) <= 6;
+  out.PASS = out.blockOK && out.pillOK && out.askOK;
+  return JSON.stringify(out);
+}
+"""
+cmd("POST", "/execute/sync", {"script": CHECK3, "args": []})
+r = cmd("POST", "/execute/sync", {"script": "return window.__check3()", "args": []})
+print("AFTER3:", r.get("value"))
+try:
+    d3 = json.loads(r.get("value"))
+    print("SCENARIO3:", "GREEN (PASS)" if d3.get("PASS") else "RED (FAIL)",
+          "| block off:", d3.get("blockOff"), "| pill in block:", d3.get("pillOffInBlock"),
+          "| ask bar in block:", d3.get("askOffInBlock"))
+except Exception as e:
+    print("scenario3 parse err:", e)
+
 cmd("DELETE", "")
 proc.terminate()
 time.sleep(1)

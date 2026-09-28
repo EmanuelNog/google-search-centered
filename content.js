@@ -486,49 +486,72 @@ function centerWithin(el, targetX) {
   }
 }
 
-// The AI module's ask-input bar: the rounded container around a text input
-// that is NOT the search box. Walk up from the input to the highest ancestor
-// still clearly narrower than the block (~the pill-shaped bar).
-function getAiBar(ai) {
-  const blockW = ai.getBoundingClientRect().width;
-  const inputs = ai.querySelectorAll("textarea, input");
-  for (const inp of inputs) {
-    if (inp.closest("#searchform")) continue;
-    const r0 = inp.getBoundingClientRect();
-    if (r0.width < 80 || r0.height < 8) continue;
-    let el = inp;
-    let best = null;
-    for (let i = 0; i < 6 && el && el !== ai; i++, el = el.parentElement) {
-      const w = el.getBoundingClientRect().width;
-      const h = el.getBoundingClientRect().height;
-      if (w >= 200 && w <= blockW * 0.92 && h >= 28 && h <= 260) best = el;
+// First ancestor clearly WIDER than the seed element — i.e. the pill/bar frame
+// that wraps it. Robust across layout variants where the picked block is
+// NARROWER than the control: live 2026-09-28 the user's render has a 764px
+// control row inside the 1100px module, so blockW-relative caps
+// (w <= blockW*0.92) rejected the pill itself and nothing was centered.
+function firstPillAncestor(seed, minW, minH, maxH, growBy) {
+  const vw = document.documentElement.clientWidth;
+  const maxW = Math.min(vw * 0.6, 1500);
+  const sw = seed.getBoundingClientRect().width;
+  let el = seed;
+  for (let i = 0; i < 8 && el && el !== document.body; i++, el = el.parentElement) {
+    const r = el.getBoundingClientRect();
+    if (
+      r.width >= Math.max(minW, sw + growBy) &&
+      r.width <= maxW &&
+      r.height >= minH &&
+      r.height <= maxH
+    ) {
+      return el;
     }
-    if (best) return best;
   }
   return null;
 }
 
-// The AI module's "show more" expander (collapsed variant): a pill hugging
-// the module's left edge ("Mostrar mais" / "Show more"). Locate by exact
-// label text, walk up to the pill (narrower than the block); NEVER move the
-// enclosing full-width row.
-function getAiMore(ai) {
-  const blockW = ai.getBoundingClientRect().width;
-  const all = ai.querySelectorAll("div, span, button");
-  for (const e of all) {
-    if (e.children.length > 2) continue;
-    const t = (e.textContent || "").trim();
-    if (AI_MORE_LABELS.indexOf(t) === -1) continue;
-    const r = e.getBoundingClientRect();
-    if (r.width < 5 || r.height < 5) continue;
-    let el = e;
-    let best = null;
-    for (let i = 0; i < 5 && el && el !== ai; i++, el = el.parentElement) {
-      const w = el.getBoundingClientRect().width;
-      const h = el.getBoundingClientRect().height;
-      if (w >= 200 && w <= blockW * 0.92 && h >= 24 && h <= 160) best = el;
+// Search roots for the module's controls: the picked block, its full-bleed
+// row, and its parent — Google's variants sometimes keep the control row in a
+// sibling branch of the block (live 2026-09-28: picked block translated to
+// center, show-more row outside it, so it never moved).
+function aiControlRoots(ai) {
+  const roots = [ai];
+  const row = ai.closest(".bzXtMb");
+  if (row && row !== ai) roots.push(row);
+  if (ai.parentElement && ai.parentElement !== ai) roots.push(ai.parentElement);
+  return roots;
+}
+
+// The AI module's ask-input bar: the rounded container around a text input
+// that is NOT the search box — the first ancestor clearly wider than the input.
+function getAiBar(ai) {
+  for (const root of aiControlRoots(ai)) {
+    const inputs = root.querySelectorAll("textarea, input");
+    for (const inp of inputs) {
+      if (inp.closest("#searchform")) continue;
+      const r0 = inp.getBoundingClientRect();
+      if (r0.width < 80 || r0.height < 8) continue;
+      const bar = firstPillAncestor(inp, 300, 28, 260, 40);
+      if (bar) return bar;
     }
-    if (best) return best;
+  }
+  return null;
+}
+
+// The AI module's "show more" expander (collapsed variant): locate by exact
+// label text ("Mostrar mais" / "Show more") and take the first ancestor that
+// wraps it as a pill.
+function getAiMore(ai) {
+  for (const root of aiControlRoots(ai)) {
+    const all = root.querySelectorAll("div, span, button");
+    for (const e of all) {
+      const t = (e.textContent || "").trim();
+      if (AI_MORE_LABELS.indexOf(t) === -1) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width < 5 || r.height < 5 || r.width > 400) continue; // the label itself
+      const pill = firstPillAncestor(e, 250, 24, 170, 100);
+      if (pill) return pill;
+    }
   }
   return null;
 }
