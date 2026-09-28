@@ -197,6 +197,7 @@ let lastPillEl = null; // last transformed pill / tab / AI targets — stale
 let lastTabsOuter = null; // transforms on replaced nodes are cleared
 let lastTabsInner = null; // on re-target
 let lastAiEl = null;
+let lastAiBar = null; // the AI module's bottom ask bar (centered within the block)
 
 function rhsVisible() {
   const rhs = document.getElementById("rhs");
@@ -390,6 +391,44 @@ function centerByResidual(el) {
   }
 }
 
+// Center an element on an arbitrary x (residual recomputed live each pass).
+// Used for controls inside an already-centered container — e.g. the AI
+// module's "Ask anything" input bar, which natively hugs the module's left
+// edge and would sit asymmetric under the centered module.
+function centerWithin(el, targetX) {
+  const r = el.getBoundingClientRect();
+  if (r.width < 100) return;
+  const residual = Math.round(targetX - (r.left + r.width / 2));
+  let base = 0;
+  const m = (el.style.transform || "").match(/translateX\((-?[\d.]+)px\)/);
+  if (m) base = parseFloat(m[1]);
+  if (Math.abs(residual) >= 2) {
+    el.style.transform = "translateX(" + (base + residual) + "px)";
+  }
+}
+
+// The AI module's ask-input bar: the rounded container around a text input
+// that is NOT the search box. Walk up from the input to the highest ancestor
+// still clearly narrower than the block (~the pill-shaped bar).
+function getAiBar(ai) {
+  const blockW = ai.getBoundingClientRect().width;
+  const inputs = ai.querySelectorAll("textarea, input");
+  for (const inp of inputs) {
+    if (inp.closest("#searchform")) continue;
+    const r0 = inp.getBoundingClientRect();
+    if (r0.width < 80 || r0.height < 8) continue;
+    let el = inp;
+    let best = null;
+    for (let i = 0; i < 6 && el && el !== ai; i++, el = el.parentElement) {
+      const w = el.getBoundingClientRect().width;
+      const h = el.getBoundingClientRect().height;
+      if (w >= 200 && w <= blockW * 0.92 && h >= 28 && h <= 260) best = el;
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 function apply() {
   const wide = window.innerWidth >= MIN_WIDTH;
   const panel = wide && rhsVisible(); // knowledge panel → center the shared zone
@@ -487,11 +526,29 @@ function apply() {
     lastAiEl = ai;
     if (active) {
       centerByResidual(ai);
+      // Center the module's bottom ask bar within the (now centered) block.
+      const bar = getAiBar(ai);
+      if (bar !== lastAiBar && lastAiBar) lastAiBar.style.transform = "";
+      if (bar) {
+        lastAiBar = bar;
+        const ac = ai.getBoundingClientRect();
+        centerWithin(bar, ac.left + ac.width / 2);
+      } else {
+        lastAiBar = null;
+      }
     } else {
       ai.style.transform = "";
+      if (lastAiBar) {
+        lastAiBar.style.transform = "";
+        lastAiBar = null;
+      }
     }
   } else {
     lastAiEl = null;
+    if (lastAiBar) {
+      lastAiBar.style.transform = "";
+      lastAiBar = null;
+    }
   }
 
   if (active) {
