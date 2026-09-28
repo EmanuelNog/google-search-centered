@@ -494,7 +494,10 @@ function centerWithin(el, targetX) {
 function firstPillAncestor(seed, minW, minH, maxH, growBy) {
   const vw = document.documentElement.clientWidth;
   const maxW = Math.min(vw * 0.6, 1500);
-  const sw = seed.getBoundingClientRect().width;
+  const r0 = seed.getBoundingClientRect();
+  const sw = r0.width;
+  const sh = r0.height;
+  // Pass 1: first ancestor clearly wider/taller than the seed (the pill frame).
   let el = seed;
   for (let i = 0; i < 8 && el && el !== document.body; i++, el = el.parentElement) {
     const r = el.getBoundingClientRect();
@@ -502,6 +505,21 @@ function firstPillAncestor(seed, minW, minH, maxH, growBy) {
       r.width >= Math.max(minW, sw + growBy) &&
       r.width <= maxW &&
       r.height >= minH &&
+      r.height <= maxH
+    ) {
+      return el;
+    }
+  }
+  // Pass 2: variants where the seed fills its frame (no extra width to grow
+  // into) — accept an ancestor that is clearly TALLER, i.e. the frame's
+  // padding/buttons are above or below the seed.
+  el = seed;
+  for (let i = 0; i < 8 && el && el !== document.body; i++, el = el.parentElement) {
+    const r = el.getBoundingClientRect();
+    if (
+      r.width >= Math.max(minW, sw) &&
+      r.width <= maxW &&
+      r.height >= Math.max(minH, sh + 20) &&
       r.height <= maxH
     ) {
       return el;
@@ -531,7 +549,7 @@ function getAiBar(ai) {
       if (inp.closest("#searchform")) continue;
       const r0 = inp.getBoundingClientRect();
       if (r0.width < 80 || r0.height < 8) continue;
-      const bar = firstPillAncestor(inp, 300, 28, 260, 40);
+      const bar = firstPillAncestor(inp, 300, 28, 260, 20);
       if (bar) return bar;
     }
   }
