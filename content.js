@@ -312,6 +312,83 @@ function clearGhostGrids() {
   zoneGhosts = [];
 }
 
+// --- non-panel mode: center content of nested zone-grids in full-bleed rows -
+// Without a knowledge panel the column is centered via the colSpan trick and
+// #rcnt's tracks stay native — so strips inside full-bleed rows (images
+// grids, footers) keep the native left-hug (live: content at [230..1330] vs
+// center 1145 on "banana marrom"). Rebalance every nested grid carrying the
+// native template so its content lands on the viewport center (same math as
+// the panel-mode ghosts, driven by live measurement + accumulated delta).
+let rowGhosts = [];
+let rowGhostBase = null; // { iw, template } native #rcnt template snapshot
+
+function alignRowGhosts(rcnt) {
+  const vw = document.documentElement.clientWidth;
+  const target = vw / 2;
+  const native = getComputedStyle(rcnt).gridTemplateColumns;
+  if (!rowGhostBase || rowGhostBase.template !== native || Math.abs(rowGhostBase.iw - vw) > 2) {
+    for (const g of rowGhosts) {
+      if (g.el.isConnected) {
+        g.el.style.gridTemplateColumns = "";
+        delete g.el.dataset.gsrRowGhost;
+      }
+    }
+    rowGhosts = [];
+    rowGhostBase = { iw: vw, template: native };
+  }
+  const base = rowGhostBase.template.split(" ");
+  if (base.length < 3) return;
+  const bFirst = parseFloat(base[0]);
+  const bLast = parseFloat(base[base.length - 1]);
+  if (!isFinite(bFirst) || !isFinite(bLast)) return;
+  const all = rcnt.querySelectorAll("div");
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    const cs = getComputedStyle(el);
+    if (cs.display !== "grid") continue;
+    let rec = null;
+    for (const g of rowGhosts) if (g.el === el) { rec = g; break; }
+    if (!rec) {
+      if (cs.gridTemplateColumns !== rowGhostBase.template) continue;
+      rec = { el, delta: 0 };
+      rowGhosts.push(rec);
+      el.dataset.gsrRowGhost = "1";
+    }
+    let minL = Infinity;
+    let maxR = -Infinity;
+    for (const k of el.children) {
+      const kr = k.getBoundingClientRect();
+      if (kr.height < 10 || kr.width < 10) continue;
+      minL = Math.min(minL, kr.left);
+      maxR = Math.max(maxR, kr.right);
+    }
+    if (!isFinite(minL) || maxR - minL < 50) continue;
+    rec.delta += Math.round(target - (minL + maxR) / 2);
+    if (Math.abs(rec.delta) < 2) {
+      rec.delta = 0;
+      if (el.style.gridTemplateColumns) el.style.gridTemplateColumns = "";
+      continue;
+    }
+    if (rec.delta > 0 && bLast - rec.delta < 0) continue;
+    if (rec.delta < 0 && bFirst + rec.delta < 0) continue;
+    const nt = base.slice();
+    nt[0] = bFirst + rec.delta + "px";
+    nt[nt.length - 1] = bLast - rec.delta + "px";
+    el.style.gridTemplateColumns = nt.join(" ");
+  }
+}
+
+function clearRowGhosts() {
+  for (const g of rowGhosts) {
+    if (g.el.isConnected) {
+      g.el.style.gridTemplateColumns = "";
+      delete g.el.dataset.gsrRowGhost;
+    }
+  }
+  rowGhosts = [];
+  rowGhostBase = null;
+}
+
 // Left edge of the header's right-side controls (Settings/Apps/Sign in).
 // Used by the overlap guard: a centered item must not reach these.
 function rightControlsLeft() {
@@ -486,8 +563,18 @@ function apply() {
   }
 
   // --- knowledge panel: center the zone the column and panel share ---
-  if (panel) centerContentZone();
-  else clearContentZone();
+  if (panel) {
+    clearRowGhosts();
+    centerContentZone();
+  } else {
+    clearContentZone();
+    if (active) {
+      const rcntEl = document.getElementById("rcnt");
+      if (rcntEl) alignRowGhosts(rcntEl);
+    } else {
+      clearRowGhosts();
+    }
+  }
 
   // --- search bar pill ---
   const pill = document.querySelector(PILL_SELECTOR);
