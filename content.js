@@ -159,6 +159,7 @@ function legacyTabsRow() {
 // wrapper above is the stop line.
 const AI_LABELS = ["Visão geral criada por IA", "AI Overview"];
 const AI_MORE_LABELS = ["Mostrar mais", "Show more"];
+let aiHeadingEl = null; // the heading element found by the last getAiBlock()
 function getAiBlock() {
   const vw = document.documentElement.clientWidth;
   let heading = null;
@@ -175,6 +176,7 @@ function getAiBlock() {
     }
   }
   if (!heading) return null;
+  aiHeadingEl = heading;
   const pillEl = document.querySelector(PILL_SELECTOR);
   const colEl = document.getElementById("center_col");
   let el = heading;
@@ -200,6 +202,7 @@ let lastTabsInner = null; // on re-target
 let lastAiEl = null;
 let lastAiBar = null; // the AI module's bottom ask bar (centered within the block)
 let lastAiMore = null; // the AI module's "show more" expander (collapsed variant)
+let lastAiInner = null; // narrower content container inside the AI block (some renders)
 
 function rhsVisible() {
   const rhs = document.getElementById("rhs");
@@ -540,6 +543,26 @@ function aiControlRoots(ai) {
   return roots;
 }
 
+// The AI module's content container. Some renders (live user grammar, vw 2098)
+// put a NARROWER container inside the centered block — the answer AND the
+// control rows live in a 764px box hugging the 1100px block's left edge — so
+// everything inside is off-center by (blockW - innerW)/2 even when the block
+// itself is centered. Center the innermost ancestor of BOTH the heading and
+// the controls that is still narrower than the block; when the first common
+// ancestor already spans the block this is a no-op (null).
+function getAiInner(ai, heading, control) {
+  if (!ai || !heading || !control) return null;
+  const blockW = ai.getBoundingClientRect().width;
+  let el = control;
+  for (let i = 0; i < 12 && el && el !== ai; i++, el = el.parentElement) {
+    if (!el.contains(heading)) continue;
+    const w = el.getBoundingClientRect().width;
+    if (w >= 300 && w < blockW * 0.95) return el;
+    return null; // first shared ancestor already spans the block
+  }
+  return null;
+}
+
 // The AI module's ask-input bar: the rounded container around a text input
 // that is NOT the search box — the first ancestor clearly wider than the input.
 function getAiBar(ai) {
@@ -686,6 +709,17 @@ function apply() {
       const ac = ai.getBoundingClientRect();
       const targetX = ac.left + ac.width / 2;
       const bar = getAiBar(ai);
+      const more = getAiMore(ai);
+      // Narrow content container (answer + controls) hugging the block's left
+      // edge: center it FIRST so the controls inside inherit the shift.
+      const inner = getAiInner(ai, aiHeadingEl, more || bar);
+      if (inner !== lastAiInner && lastAiInner) lastAiInner.style.transform = "";
+      if (inner) {
+        lastAiInner = inner;
+        centerWithin(inner, targetX);
+      } else {
+        lastAiInner = null;
+      }
       if (bar !== lastAiBar && lastAiBar) lastAiBar.style.transform = "";
       if (bar) {
         lastAiBar = bar;
@@ -693,7 +727,6 @@ function apply() {
       } else {
         lastAiBar = null;
       }
-      const more = getAiMore(ai);
       if (more !== lastAiMore && lastAiMore) lastAiMore.style.transform = "";
       if (more) {
         lastAiMore = more;
@@ -711,6 +744,10 @@ function apply() {
         lastAiMore.style.transform = "";
         lastAiMore = null;
       }
+      if (lastAiInner) {
+        lastAiInner.style.transform = "";
+        lastAiInner = null;
+      }
     }
   } else {
     lastAiEl = null;
@@ -721,6 +758,10 @@ function apply() {
     if (lastAiMore) {
       lastAiMore.style.transform = "";
       lastAiMore = null;
+    }
+    if (lastAiInner) {
+      lastAiInner.style.transform = "";
+      lastAiInner = null;
     }
   }
 
