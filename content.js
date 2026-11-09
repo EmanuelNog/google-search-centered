@@ -489,46 +489,45 @@ function centerWithin(el, targetX) {
   }
 }
 
-// First ancestor clearly WIDER than the seed element — i.e. the pill/bar frame
-// that wraps it. Robust across layout variants where the picked block is
-// NARROWER than the control: live 2026-09-28 the user's render has a 764px
-// control row inside the 1100px module, so blockW-relative caps
-// (w <= blockW*0.92) rejected the pill itself and nothing was centered.
-function firstPillAncestor(seed, minW, minH, maxH, growBy) {
+// NOTE: the former firstPillAncestor() (first ancestor merely wider than the
+// seed) was removed in 1.0.13 — it is the function that grabbed the label's
+// hover-fill wrapper / the "+"-button group instead of the control's frame.
+// Use controlFrame() instead.
+
+// Outermost ancestor of a control that is STILL that control's own frame — the
+// box that carries its border and hover paint. 1.0.12 and earlier took the
+// first ancestor merely wider than the seed, which is often an INNER wrapper
+// (the hover-fill box around a label, or the group holding a "+" button and
+// the textarea). Translating that wrapper leaves the frame behind: the hover
+// highlight and the placeholder visibly detach from the pill/bar (user report
+// 2026-11-09, both AI-module control bugs). Climb until the ancestor stops
+// looking like the control: it would hold the module heading (that container is
+// getAiInner's job), reach the block or a control root, or grow past
+// blockW * 0.95 / maxH.
+function controlFrame(seed, blockEl, minW, minH, maxH) {
   const vw = document.documentElement.clientWidth;
-  const maxW = Math.min(vw * 0.6, 1500);
-  const r0 = seed.getBoundingClientRect();
-  const sw = r0.width;
-  const sh = r0.height;
-  // Pass 1: first ancestor clearly wider/taller than the seed (the pill frame).
+  const blockW = blockEl ? blockEl.getBoundingClientRect().width : 0;
+  const maxW = Math.min(blockW > 100 ? blockW * 0.95 : vw * 0.95, vw * 0.95);
+  const roots = blockEl ? aiControlRoots(blockEl) : [];
   let el = seed;
+  let best = null;
   for (let i = 0; i < 8 && el && el !== document.body; i++, el = el.parentElement) {
+    if (aiHeadingEl && (el === aiHeadingEl || el.contains(aiHeadingEl))) break;
+    if (blockEl && (el === blockEl || el.contains(blockEl))) break;
+    if (roots.indexOf(el) !== -1 && el !== seed) break;
     const r = el.getBoundingClientRect();
     if (
-      r.width >= Math.max(minW, sw + growBy) &&
+      r.width >= minW &&
       r.width <= maxW &&
       r.height >= minH &&
       r.height <= maxH
     ) {
-      return el;
+      best = el;
+      continue;
     }
+    if (best) break; // left the control's own frame — keep the outermost fit
   }
-  // Pass 2: variants where the seed fills its frame (no extra width to grow
-  // into) — accept an ancestor that is clearly TALLER, i.e. the frame's
-  // padding/buttons are above or below the seed.
-  el = seed;
-  for (let i = 0; i < 8 && el && el !== document.body; i++, el = el.parentElement) {
-    const r = el.getBoundingClientRect();
-    if (
-      r.width >= Math.max(minW, sw) &&
-      r.width <= maxW &&
-      r.height >= Math.max(minH, sh + 20) &&
-      r.height <= maxH
-    ) {
-      return el;
-    }
-  }
-  return null;
+  return best;
 }
 
 // Search roots for the module's controls: the picked block, its full-bleed
@@ -564,7 +563,9 @@ function getAiInner(ai, heading, control) {
 }
 
 // The AI module's ask-input bar: the rounded container around a text input
-// that is NOT the search box — the first ancestor clearly wider than the input.
+// that is NOT the search box — the outermost ancestor that is still the bar's
+// own frame (see controlFrame; the inner "+"-button group used to be picked,
+// which detached the placeholder from the bar).
 function getAiBar(ai) {
   for (const root of aiControlRoots(ai)) {
     const inputs = root.querySelectorAll("textarea, input");
@@ -572,7 +573,7 @@ function getAiBar(ai) {
       if (inp.closest("#searchform")) continue;
       const r0 = inp.getBoundingClientRect();
       if (r0.width < 80 || r0.height < 8) continue;
-      const bar = firstPillAncestor(inp, 300, 28, 260, 20);
+      const bar = controlFrame(inp, ai, 300, 28, 260);
       if (bar) return bar;
     }
   }
@@ -580,8 +581,10 @@ function getAiBar(ai) {
 }
 
 // The AI module's "show more" expander (collapsed variant): locate by exact
-// label text ("Mostrar mais" / "Show more") and take the first ancestor that
-// wraps it as a pill.
+// label text ("Mostrar mais" / "Show more") and take the OUTERMOST ancestor
+// that is still the control's frame. Taking the first wider ancestor put the
+// transform on the label's hover-fill wrapper, so hovering lit a box shifted
+// right of the pill border (user report 2026-11-09).
 function getAiMore(ai) {
   for (const root of aiControlRoots(ai)) {
     const all = root.querySelectorAll("div, span, button");
@@ -590,7 +593,7 @@ function getAiMore(ai) {
       if (AI_MORE_LABELS.indexOf(t) === -1) continue;
       const r = e.getBoundingClientRect();
       if (r.width < 5 || r.height < 5 || r.width > 400) continue; // the label itself
-      const pill = firstPillAncestor(e, 250, 24, 170, 100);
+      const pill = controlFrame(e, ai, 250, 24, 170);
       if (pill) return pill;
     }
   }
@@ -720,17 +723,34 @@ function apply() {
       } else {
         lastAiInner = null;
       }
+      // A control that lives INSIDE the container we just centered already
+      // moved with it — shifting it again would detach it from the answer text
+      // it belongs to (the user's "input field looks centered" bug). Only
+      // controls outside that container get their own shift.
+      const innerHolds = (el) => !!(inner && el && inner !== el && inner.contains(el));
       if (bar !== lastAiBar && lastAiBar) lastAiBar.style.transform = "";
       if (bar) {
         lastAiBar = bar;
-        centerWithin(bar, targetX);
+        const wasInner = bar.dataset.gsrBarTf;
+        if (innerHolds(bar)) {
+          if (wasInner !== "inner" && bar.style.transform) bar.style.transform = "";
+        } else {
+          centerWithin(bar, targetX);
+        }
+        bar.dataset.gsrBarTf = innerHolds(bar) ? "inner" : "own";
       } else {
         lastAiBar = null;
       }
       if (more !== lastAiMore && lastAiMore) lastAiMore.style.transform = "";
       if (more) {
         lastAiMore = more;
-        centerWithin(more, targetX);
+        const wasInner = more.dataset.gsrMoreTf;
+        if (innerHolds(more)) {
+          if (wasInner !== "inner" && more.style.transform) more.style.transform = "";
+        } else {
+          centerWithin(more, targetX);
+        }
+        more.dataset.gsrMoreTf = innerHolds(more) ? "inner" : "own";
       } else {
         lastAiMore = null;
       }

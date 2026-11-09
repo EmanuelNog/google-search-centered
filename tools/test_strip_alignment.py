@@ -46,7 +46,7 @@ def req(method, path, body=None):
         except Exception:
             return {"error": e.code, "raw": raw[:300].decode(errors="replace")}
 
-res = req("POST", "/session", {"capabilities": {"alwaysMatch": {"moz:firefoxOptions": {"args": ["-headless", "-no-remote"]}}}})
+res = req("POST", "/session", {"capabilities": {"alwaysMatch": {"moz:firefoxOptions": {"binary": "/usr/lib/firefox-developer-edition/firefox", "args": ["-headless", "-no-remote"]}}}})
 sid = (res.get("value") or {}).get("sessionId") or res.get("sessionId")
 if not sid:
     print("SESSION FAILED:", json.dumps(res)[:300]); proc.terminate(); sys.exit(1)

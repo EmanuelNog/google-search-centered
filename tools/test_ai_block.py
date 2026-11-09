@@ -38,7 +38,7 @@ def req(method, path, body=None):
         try: return json.loads(raw) if raw else {"error": e.code}
         except Exception: return {"error": e.code, "raw": raw[:200].decode(errors="replace")}
 
-res = req("POST", "/session", {"capabilities":{"alwaysMatch":{"moz:firefoxOptions":{"args":["-headless"]}}}})
+res = req("POST", "/session", {"capabilities":{"alwaysMatch":{"moz:firefoxOptions":{"binary":"/usr/lib/firefox-developer-edition/firefox","args":["-headless"]}}}})
 sid = res.get("value",{}).get("sessionId") or res.get("sessionId")
 print("sid:", sid)
 def cmd(m, p, b=None): return req(m, f"/session/{sid}{p}", b)
