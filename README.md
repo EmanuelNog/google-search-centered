@@ -38,23 +38,34 @@ the native layout is kept.
 ▓▓ logo   ▄▄ search bar   ── filter tabs   ██ results   ░░ header controls
 ```
 
-It only kicks in when:
+It only kicks in when the window is at least **1440px** wide (one knob,
+`MIN_WIDTH` in `content.js`).
 
-- the window is at least **1440px** wide (one knob, `MIN_WIDTH` in
-  `content.js`), and
-- no **knowledge panel** (`#rhs`) is visible — when Google shows one, the
-  add-on leaves the original layout untouched.
+With a **knowledge panel** (`#rhs`) the column and the panel share one grid
+zone, so the add-on rebalances the outer grid tracks instead of dragging the
+column: the zone (results + panel + entity header) slides onto the centre while
+photos/video strips that span the full grid stay full-bleed.
 
 Works on `google.com` and regional Google domains (see the matches list in
-`manifest.json`; add your country TLD there if it is missing).
+`manifest.json`; add your country TLD there — and in `manifest.chrome.json` —
+if it is missing).
 
 ## Install (temporary, for development / personal use)
 
-1. Open Firefox and go to `about:debugging#/runtime/this-firefox`
+Firefox:
+
+1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…**
 3. Select `manifest.json` from this folder
 
-The add-on stays active until Firefox is closed.
+Chrome / Chromium (unpacked):
+
+1. Open `chrome://extensions`
+2. Turn on **Developer mode**
+3. **Load unpacked** → pick `dist/chrome-unpacked/` (run `tools/build.sh` first)
+
+The Firefox temporary add-on stays active until Firefox is closed; an unpacked
+Chrome extension survives restarts but Chrome nags about developer mode.
 
 ## Install (permanent — signed release)
 
@@ -90,6 +101,37 @@ All centered states land within ±1px of `clientWidth / 2`, with zero
 horizontal overflow, and re-center correctly when the window is resized in
 either direction (including across the 1440px threshold). Larger monitors
 (4K etc.) use the same live math and need no changes.
+
+## Development loop (one code path, two browsers)
+
+`content.js` is byte-identical in both packages — the manifests differ only in
+packaging (Firefox needs the gecko id + data-collection declaration; Chrome
+warns on gecko keys). Everything below therefore proves behaviour once and
+replays it on each engine.
+
+```bash
+tools/build.sh                     # Firefox zip + Chrome zip + dist/chrome-unpacked
+python3 tools/run_fixtures.py firefox   # 12 maintenance contracts
+python3 tools/run_fixtures.py chrome    # the SAME 12 fixtures on Chromium
+tools/smoke_chrome.sh              # packaged Chrome extension, real page load
+```
+
+`tools/run_fixtures.py` is the contract suite and the definition of what must
+keep working: column/pill/tabs/AI centering, the panel zone + full-bleed
+strips, the AI-module control frames ("Show more" hover fill and the "Ask
+anything" bar), the MIN_WIDTH gate, the header overlap guard, idempotent
+re-application, the tabs clip frame, stale-node clearing after Google
+re-renders, teardown on shrink, and the legacy/pt-BR label variants. Both
+engines must report `12/12 fixtures GREEN`.
+
+`tools/smoke_chrome.sh` is the packaging check the fixtures cannot give: it
+loads the *packaged* extension in headless Chromium and confirms the content
+script injects at `document_start` on a matching URL. It maps `www.google.com`
+to a local TLS fixture because headless Chrome gets Google's `/sorry` wall
+(and `google.com` is HSTS-preloaded, so the fixture must be served over TLS).
+
+The older `tools/test_*.py` suites remain as the historical regression record
+(they are Firefox geckodriver scripts).
 
 ## Customization
 
