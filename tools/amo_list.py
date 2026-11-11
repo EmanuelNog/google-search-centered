@@ -26,10 +26,11 @@ MANIFEST = json.load(open(os.path.join(PROJ, "manifest.json")))
 VERSION = MANIFEST["version"]
 XPI = os.path.join(PROJ, "web-ext-artifacts", f"google_search_centered-{VERSION}.zip")
 RELEASE_NOTES = {
-    "en-US": ("Centers the AI overview panel as well as the results column, the search bar "
-              "and the filter tabs. New original icon art. Full scope: results, search bar, "
-              "filter tabs and AI overview are centered on wide screens (>=1440px) when no "
-              "knowledge panel is shown.")
+    "en-US": ("Fixes the AI overview's bottom controls. The 'Show more' button and the "
+              "'Ask anything' input bar are now moved as whole frames, so the hover "
+              "highlight stays inside the button border and the placeholder stays "
+              "attached to the left edge of its bar. Results column, search bar, filter "
+              "tabs and AI overview stay centered on wide screens (>=1440px).")
 }
 
 
